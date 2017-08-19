@@ -299,8 +299,9 @@ export class Template {
 export const getValue = (part: Part, value: any) => {
   // `null` as the value of a Text node will render the string 'null'
   // so we convert it to undefined
-  if (value != null && value.__litDirective === true) {
+  if (isDirective(value)) {
     value = value(part);
+    return directiveValue;
   }
   return value === null ? undefined : value;
 };
@@ -312,13 +313,14 @@ export const directive = <F extends DirectiveFn>(f: F): F => {
   return f;
 };
 
+const isDirective = (o: any) =>
+    typeof o === 'function' && o.__litDirective === true;
+
+const directiveValue = {};
+
 export interface Part {
   instance: TemplateInstance;
   size?: number;
-
-  // constructor(instance: TemplateInstance) {
-  //   this.instance = instance;
-  // }
 }
 
 export interface SinglePart extends Part { setValue(value: any): void; }
@@ -352,7 +354,7 @@ export class AttributePart implements MultiPart {
       text += strings[i];
       if (i < strings.length - 1) {
         const v = getValue(this, values[startIndex + i]);
-        if (v &&
+        if (v && v !== directiveValue &&
             (Array.isArray(v) || typeof v !== 'string' && v[Symbol.iterator])) {
           for (const t of v) {
             // TODO: we need to recursively call getValue into iterables...
@@ -371,7 +373,7 @@ export class NodePart implements SinglePart {
   instance: TemplateInstance;
   startNode: Node;
   endNode: Node;
-  private _previousValue: any;
+  _previousValue: any;
 
   constructor(instance: TemplateInstance, startNode: Node, endNode: Node) {
     this.instance = instance;
@@ -382,7 +384,9 @@ export class NodePart implements SinglePart {
 
   setValue(value: any): void {
     value = getValue(this, value);
-
+    if (value === directiveValue) {
+      return;
+    }
     if (value === null ||
         !(typeof value === 'object' || typeof value === 'function')) {
       // Handle primitive values
