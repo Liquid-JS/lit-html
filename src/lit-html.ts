@@ -123,6 +123,8 @@ const hasTagsRegex = /[^<]*/;
 const textMarkerContent = '_-lit-html-_';
 const textMarker = `<!--${textMarkerContent}-->`;
 const attrOrTextRegex = new RegExp(`${attributeMarker}|${textMarker}`);
+const lastAttributeNameRegex =
+    /((?:\w|[.\-_$])+)=(?:[^"']*|(?:["][^"]*)|(?:['][^']*))$/;
 
 /**
  * A placeholder for a dynamic expression in an HTML template.
@@ -190,22 +192,28 @@ export class Template {
         // a correspondance between part index and attribute index.
 
         // Do a first pass to count attributes that correspond to parts.
-        const attributesWithParts: string[][] = [].filter.call(attributes, (attribute: Attr) =>
-          attribute.value.split(attrOrTextRegex).length > 1
-        );
+        const attributesWithParts: string[][] = Array.prototype.filter.call(
+            attributes,
+            (attribute: Attr) =>
+                attribute.value.split(attrOrTextRegex).length > 1);
         // Loop that many times, but don't use loop index for anything.
         for (let i = 0; i < attributesWithParts.length; i++) {
           // Get the template literal section leading up to the first
           // expression in this attribute attribute
           const stringForPart = strings[partIndex];
           // Find the attribute name
-          // Trim the trailing literal value if this is an interpolation
-          const attributeNameInPart = stringForPart.match(/((?:\w|[.\-_$])+)=["']?/)![1];
+          const attributeNameInPart =
+              stringForPart.match(lastAttributeNameRegex)![1];
           // Find the corresponding attribute
           const attribute = attributes.getNamedItem(attributeNameInPart);
-          const stringsForAttributeValue = attribute.value.split(attrOrTextRegex);
+          const stringsForAttributeValue =
+              attribute.value.split(attrOrTextRegex);
           this.parts.push(new TemplatePart(
-            'attribute', index, attribute.name, attributeNameInPart, stringsForAttributeValue));
+              'attribute',
+              index,
+              attribute.name,
+              attributeNameInPart,
+              stringsForAttributeValue));
           node.removeAttribute(attribute.name);
           partIndex += stringsForAttributeValue.length - 1;
         }
@@ -578,7 +586,8 @@ export class TemplateInstance {
       // null
       const walker = document.createTreeWalker(
           fragment,
-          133 /* NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_TEXT */
+          133 /* NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT |
+                 NodeFilter.SHOW_TEXT */
           ,
           null as any,
           false);
