@@ -425,7 +425,7 @@ const isDirective = (o: any) =>
  */
 export const directiveValue = {};
 
-const isPrimitiveValue = (value: any) => value === null ||
+export const isPrimitiveValue = (value: any) => value === null ||
     !(typeof value === 'object' || typeof value === 'function');
 
 export interface Part {
