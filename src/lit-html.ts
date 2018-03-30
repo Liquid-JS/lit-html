@@ -184,15 +184,15 @@ export function render(
  * An expression marker with embedded unique key to avoid collision with
  * possible text in templates.
  */
-const marker = `{{lit-${String(Math.random()).slice(2)}}}`;
+export const marker = `{{lit-${String(Math.random()).slice(2)}}}`;
 
 /**
  * An expression marker used text-posisitions, not attribute positions,
  * in template.
  */
-const nodeMarker = `<!--${marker}-->`;
+export const nodeMarker = `<!--${marker}-->`;
 
-const markerRegex = new RegExp(`${marker}|${nodeMarker}`);
+export const markerRegex = new RegExp(`${marker}|${nodeMarker}`);
 
 /**
  * This regex extracts the attribute name preceding an attribute-position
@@ -219,7 +219,7 @@ const markerRegex = new RegExp(`${marker}|${nodeMarker}`);
  *    * (") then any non-("), or
  *    * (') then any non-(')
  */
-const lastAttributeNameRegex =
+export const lastAttributeNameRegex =
     /[ \x09\x0a\x0c\x0d]([^\0-\x1F\x7F-\x9F \x09\x0a\x0c\x0d"'>=/]+)[ \x09\x0a\x0c\x0d]*=[ \x09\x0a\x0c\x0d]*(?:[^ \x09\x0a\x0c\x0d"'`<>=]*|"[^"]*|'[^']*)$/;
 
 /**
