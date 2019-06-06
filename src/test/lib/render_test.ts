@@ -120,6 +120,13 @@ suite('render()', () => {
           stripExpressionMarkers(container.innerHTML), '<div>foo </div>');
     });
 
+    test('renders parts that look like attributes', () => {
+      render(html`<div>foo bar=${'baz'}</div>`, container);
+      assert.equal(
+          stripExpressionMarkers(container.innerHTML),
+          '<div>foo bar=baz</div>');
+    });
+
     test('renders multiple parts per element, preserving whitespace', () => {
       render(html`<div>${'foo'} ${'bar'}</div>`, container);
       assert.equal(
@@ -261,12 +268,67 @@ suite('render()', () => {
       assert.equal(container.querySelector('p')!.textContent, 'bar');
     });
 
+    test('renders comments with bindings followed by attr', () => {
+      const t = html`
+        <!-- ${'foo'} -->
+        <p bar=${'baz'}></p>`;
+      render(t, container);
+      assert.equal(container.querySelector('p')!.getAttribute('bar'), 'baz');
+    });
+
     test('renders comments with multiple bindings', () => {
       const t = html`
         <!-- <div class="${'foo'}">${'bar'}</div> -->
         <p>${'baz'}</p>`;
       render(t, container);
       assert.equal(container.querySelector('p')!.textContent, 'baz');
+    });
+
+    test('handles comments with bindings', () => {
+      const t = html`<p>A<!-- ${'B'} ${'C'} -->D</p>`;
+      render(t, container);
+      // Use innerText instead of textContent because of a crazy bug in
+      // Chrome 41 where textContent would include the textContent of comments!
+      assert.equal(container.querySelector('p')!.innerText, 'AD');
+    });
+
+    test('handles elements in comments with attribute bindings', () => {
+      const t = html`A<!-- <div foo=${'bar'}>B</div>${'baz'} -->C`;
+      render(t, container);
+      // Use innerText instead of textContent because of a crazy bug in
+      // Chrome 41 where textContent would include the textContent of comments!
+      assert.equal(container.innerText, 'AC');
+    });
+
+    test('handles attribute bindings with comment-like values', () => {
+      const t = html`A<div foo="<!--${'bar'}">B</div>C`;
+      render(t, container);
+      assert.equal(container.textContent, 'ABC');
+    });
+
+    test('handles comments with attribute-like content', () => {
+      const t = html`A<!-- foo=${'bar'}-->B`;
+      render(t, container);
+      // Use innerText instead of textContent because of a crazy bug in
+      // Chrome 41 where textContent would include the textContent of
+      // comments!
+      assert.equal(container.innerText, 'AB');
+    });
+
+    test('handles elements in comments with node bindings', () => {
+      const t = html`A<!-- <div>${'B'}</div>${'baz'} -->C`;
+      render(t, container);
+      // Use innerText instead of textContent because of a crazy bug in
+      // Chrome 41 where textContent would include the textContent of comments!
+      assert.equal(container.innerText, 'AC');
+    });
+
+    test('renders comments with multiple bindings followed by attr', () => {
+      const t = html`
+        <!-- ${'foo'} ${'bar'} -->
+        <p baz=${'qux'}></p>`;
+      render(t, container);
+      assert.equal(container.querySelector('p')!.getAttribute('baz'), 'qux');
     });
 
     test('does not break with an attempted dynamic start tag', () => {
@@ -440,7 +502,8 @@ suite('render()', () => {
           container);
       assert.oneOf(stripExpressionMarkers(container.innerHTML), [
         '<div foo="Foo" bar="Bar" baz="Baz"></div>',
-        '<div foo="Foo" baz="Baz" bar="Bar"></div>'
+        '<div foo="Foo" baz="Baz" bar="Bar"></div>',
+        '<div bar="Bar" foo="Foo" baz="Baz"></div>'
       ]);
     });
 
@@ -549,7 +612,7 @@ suite('render()', () => {
 
     test('adds event listener functions, calls with right this value', () => {
       let thisValue;
-      let event: Event;
+      let event: Event|undefined = undefined;
       const listener = function(this: any, e: any) {
         event = e;
         thisValue = this;
@@ -558,14 +621,17 @@ suite('render()', () => {
       render(html`<div @click=${listener}></div>`, container, {eventContext});
       const div = container.querySelector('div')!;
       div.click();
+      if (event === undefined) {
+        throw new Error(`Event listener never fired!`);
+      }
       assert.equal(thisValue, eventContext);
 
       // MouseEvent is not a function in IE, so the event cannot be an instance
       // of it
       if (typeof MouseEvent === 'function') {
-        assert.instanceOf(event!, MouseEvent);
+        assert.instanceOf(event, MouseEvent);
       } else {
-        assert.isDefined((event! as MouseEvent).initMouseEvent);
+        assert.isDefined((event as MouseEvent).initMouseEvent);
       }
     });
 
@@ -966,6 +1032,15 @@ suite('render()', () => {
     }
     customElements.define('property-tester', PropertySetterElement);
 
+    class MutatesInConstructorElement extends HTMLElement {
+      constructor() {
+        super();
+        this.appendChild(document.createElement('div'));
+      }
+    }
+    customElements.define(
+        'mutates-in-constructor', MutatesInConstructorElement);
+
     teardown(() => {
       if (container.parentElement === document.body) {
         document.body.removeChild(container);
@@ -1032,6 +1107,19 @@ suite('render()', () => {
           const instance = container.firstElementChild as PropertySetterElement;
           assert.equal(instance.value, 'foo');
           assert.isTrue(instance.calledSetter);
+        });
+
+    // We need Safari to implement customElements.upgrade before we can enable
+    // this.
+    test.skip(
+        'does not upgrade elements until after parts are established', () => {
+          render(
+              html`
+            <mutates-in-constructor></mutates-in-constructor>
+            <span>${'test'}</span>
+      `,
+              container);
+          assert.equal(container.querySelector('span')!.textContent, 'test');
         });
   });
 
@@ -1103,7 +1191,7 @@ suite('render()', () => {
       // Wait for mutation callback to be called
       await new Promise((resolve) => setTimeout(resolve));
 
-      const elementNodes: Array<Node> = [];
+      const elementNodes: Node[] = [];
       for (const record of mutationRecords) {
         elementNodes.push(...Array.from(record.addedNodes)
                               .filter((n) => n.nodeType === Node.ELEMENT_NODE));

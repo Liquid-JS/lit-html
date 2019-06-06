@@ -37,11 +37,11 @@ You can try out lit-html without installing anything using an online editor. Bel
 ## Importing
 
 lit-html is written in and distributed as standard JavaScript modules.
-Modules are increasingly supported in JavaScript environments and are shipping in Chrome, Opera and Safari, and will soon be in Firefox and Edge.
+Modules are increasingly supported in JavaScript environments and have shipped in Chrome, Firefox, Edge, Safari, and Opera.
 
 To use lit-html, import it via a path:
 
-```js
+```html
 <script type="module">
   import {html, render} from './node_modules/lit-html/lit-html.js';
   ...

@@ -80,7 +80,7 @@ By default, an expression in the value of an attribute creates an attribute bind
 
 ```js
 // set the class attribute
-const myTemplate(data) = html`<div class=${data.cssClass}>Stylish text.</div>`;
+const myTemplate = (data) => html`<div class=${data.cssClass}>Stylish text.</div>`;
 ```
 
 Since attribute values are always strings, the expression should return a value that can be converted into a string.
@@ -88,7 +88,7 @@ Since attribute values are always strings, the expression should return a value 
 Use the `?` prefix for a boolean attribute binding. The attribute is added if the expression evaluates to a truthy value, removed if it evaluates to a falsy value:
 
 ```js
-const myTemplate2(data) = html`<div ?disabled=${!data.active}>Stylish text.</div>`;
+const myTemplate2 = (data) => html`<div ?disabled=${!data.active}>Stylish text.</div>`;
 ```
 
 ## Bind to properties
@@ -96,7 +96,7 @@ const myTemplate2(data) = html`<div ?disabled=${!data.active}>Stylish text.</div
 You can also bind to a node's JavaScript properties using the `.` prefix and the property name:
 
 ```js
-const myTemplate3(data) = html`<my-list .listItems=${data.items}></my-list>`;
+const myTemplate3 = (data) => html`<my-list .listItems=${data.items}></my-list>`;
 ```
 
 You can use property bindings to pass complex data down the tree to subcomponents.
@@ -127,9 +127,12 @@ const clickHandler = {
 };
 ```
 
+<div class="alert alert-info">
+
 **Event listener objects.** When you specify a listener using an event listener object,
 the listener object itself is set as the event context (`this` value).
-{.alert .alert-info}
+
+</div>
 
 ## Nest and compose templates
 
@@ -149,7 +152,7 @@ You can use any expression that returns a `TemplateResult`, like another templat
 // some complex view
 const myListView = (items) => html`<ul>...</ul>`;
 
-const myPage(data) = html`
+const myPage = (data) => html`
   ${myHeader}
   ${myListView(data.items)}
 `;
@@ -267,6 +270,43 @@ To compare this to lit-html's default handling for lists, consider reversing a l
 
 Which repeat is more efficient depends on your use case: if updating the DOM nodes is more expensive than moving them, use the repeat directive. Otherwise, use `Array.map` or looping statements.
 
+### Rendering nothing
+Sometimes, you may want to render nothing at all. The values `undefined`, `null` and the empty string (`''`) in a text binding all render an empty text node. In most cases, that's exactly what you want:
+````js
+import {html} from 'lit-html';
+${user.isAdmin
+      ? html`<button>DELETE</button>`
+      : ''
+  }
+````
+The DOM is inconsistent in some cases with its behavior towards `undefined` & `null`. Using an empty string (`''`) is the most consistent. 
+#### nothing and the slot fallback content
+`nothing` is a sentinel value provided by lit-html. It really does render nothing, because
+it clears the Part.
+
+Why is this important? Imagine you have a shadow DOM enabled custom element, `shadow-element`, that uses a slot. 
+The template looks like this:
+```js
+import {html} from 'lit-html';
+html`<slot>Sorry, no content available. I am just fallback content</slot>`;
+``` 
+The slot defines fallback content for when there is no content defined to be put in the slot. 
+So, extending on our previous example:
+```js
+import {nothing, html} from 'lit-html';
+
+html`
+<shadow-element>${user.isAdmin
+        ? html`<button>DELETE</button>`
+        : nothing
+      }</shadow-element>
+`;
+``` 
+If the user is logged in, DELETE button is rendered. If the user is not logged in, nothing is rendered inside of `shadow-element`.
+therefore the slot is empty and its fallback content "Sorry, no content available. I am just fallback content" will be rendered.
+
+**Whitespace creates text nodes.** For the example to work, the text binding inside `<shadow-element>` must be the **entire** contents of `<shadow-element>`. Any whitespace outside of the binding delimiters adds static text nodes to the template, suppressing the fallback content. However, whitespace _inside_ the binding delimiters is fine.
+
 ## Caching template results: the cache directive 
 
 In most cases, JavaScript conditionals are all you need for conditional templates. However, if you're switching between large, complicated templates, you might want to save the cost of recreating DOM on each switch. 
@@ -286,4 +326,3 @@ html`${cache(data.showDetails
 When lit-html re-renders a template, it only updates the modified portions: it doesn't create or remove any more DOM than it needs to. But when you switch from one template to another, lit-html needs to remove the old DOM and render a new DOM tree. 
 
 The `cache` directive caches the generated DOM for a given binding and input template. In the example above, it would cache the DOM for both the  `summaryView` and `detailView` templates. When you switch from one view to another, lit-html just needs to swap in the cached version of the new view, and update it with the latest data.
-
